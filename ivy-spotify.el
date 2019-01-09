@@ -1,39 +1,48 @@
 ;;; spotify.el --- Control Spotify through Ivy
 ;;; Commentary:
 
-;;; Provides functions to control spotify through an Ivy front end.
-;;; Must set SPOTIFY-CLIENT-ID and SPOTIFY-CLIENT-SECRET in your config.
-;;; Follow the guide here to obtain those:
-;;; https://developer.spotify.com/documentation/general/guides/authorization-guide/
-;;; The secret can simply be taken from the URL query parameters upon successful redirect.
-;;; This is a WIP currently, needs a few more features.
+;;; Provides minimal set of functions to control spotify through an Ivy front
+;;; end. Must set spotify-client-id and spotify-client-secret in your config.
+;;; Create a personal app here first to connect with:
+;;; https://developer.spotify.com/ Oauth2 will open a browser on the initial
+;;; login. Provide your credentials and then take the code from the query
+;;; parameters of the callback url it attempts to visit. This is a WIP
+;;; currently, needs a few more features.
 ;;;
-;;; Package-Requires: ((oauth2 " 0.11"))
+;;; Package-Requires: ((oauth2 "0.11") (swiper "20181212.1655") (json "1.4"))
 ;;; -*- lexical-binding: t; -*-
 
 ;;; Code:
-(defconst auth-url "https://accounts.spotify.com/authorize")
-(defconst token-url "https://accounts.spotify.com/api/token")
-(defconst scopes "user-modify-playback-state user-read-playback-state")
-(defconst search "https://api.spotify.com/v1/search")
-(defconst play "https://api.spotify.com/v1/me/player/play")
-(defconst devices "https://api.spotify.com/v1/me/player/devices")
-(defconst transfer-playback "https://api.spotify.com/v1/me/player")
-(defconst json-header '(("Content-Type" . "application/json")))
-(defconst url-header '(("Content-Type" . "application/x-www-form-urlencoded")))
-(defconst cl-header '(("Content-Length" . "0")))
+(defconst spotify-auth-url "https://accounts.spotify.com/authorize")
+(defconst spotify-token-url "https://accounts.spotify.com/api/token")
+(defconst spotify-scopes "user-modify-playback-state user-read-playback-state")
+(defconst spotify-search-url "https://api.spotify.com/v1/search")
+(defconst spotify-play-url "https://api.spotify.com/v1/me/player/play")
+(defconst spotify-devices-url "https://api.spotify.com/v1/me/player/devices")
+(defconst spotify-transfer-playback-url "https://api.spotify.com/v1/me/player")
+(defconst spotify-json-header '(("Content-Type" . "application/json")))
+(defconst spotify-url-header '(("Content-Type" . "application/x-www-form-urlencoded")))
+(defconst spotify-cl-header '(("Content-Length" . "0")))
 
-(defconst client-id spotify-client-id)
-(defconst client-secret spotify-client-secret)
+(defgroup ivy-spotify nil
+          "Ivy-spotify client")
+(defcustom spotify-client-id nil
+           "Spotify app id for oauth in ivy-spotify."
+           :type 'string
+           :group 'ivy-spotify)
+(defcustom spotify-client-secret nil
+           "Spotify app secret for oauth in ivy-spotify."
+           :type 'string
+           :group 'ivy-spotify)
 
 (defun token ()
   "Retrieves personal access token using oauth2 flow."
     (oauth2-auth-and-store
-                 auth-url
-                 token-url
-                 scopes
-                 client-id
-                 client-secret
+                 spotify-auth-url
+                 spotify-token-url
+                 spotify-scopes
+                 spotify-client-id
+                 spotify-client-secret
                  "http://localhost:8080/callback"))
 
 (defun make-req (url &optional method data headers)
@@ -44,33 +53,33 @@
 
 (defun spotify-search-tracks (str)
   "Execute spotify track search for STR."
-  (let ((url (concat search "?type=track" "&" "q=" str)))
+  (let ((url (concat spotify-search-url "?type=track" "&" "q=" str)))
     (make-req url "GET")))
 
 (defun spotify-search-playlists (str)
   "Execute spotify playlist search for STR."
-  (let ((url (concat search "?type=playlist" "&" "q=" str)))
+  (let ((url (concat spotify-search-url "?type=playlist" "&" "q=" str)))
     (make-req url "GET")))
 
 (defun spotify-search-albums (str)
   "Execute spotify playlist search for STR."
-  (let ((url (concat search "?type=album" "&" "q=" str)))
+  (let ((url (concat spotify-search-url "?type=album" "&" "q=" str)))
     (make-req url "GET")))
 
 (defun spotify-play-track (uri)
   "Play the given spotify track URI on currently active device."
   (let ((data (json-encode `(("uris" . ,(list uri))))))
-    (make-req play "PUT" data json-header)))
+    (make-req spotify-play-url "PUT" data spotify-json-header)))
 
 (defun spotify-play-context (uri)
   "Play the given spotify context URI on currently active device."
   (let ((data (json-encode `(("context_uri" . ,uri)))))
-    (make-req play "PUT" data json-header)))
+    (make-req spotify-play-url "PUT" data spotify-json-header)))
 
 (defun spotify-activate-device (id)
   "Activate device with ID."
   (let ((json-dev (json-encode `(("device_ids" . ,(list id))))))
-    (make-req transfer-playback "PUT" json-dev json-header)))
+    (make-req spotify-transfer-playback-url "PUT" json-dev spotify-json-header)))
 
 (defun vec-head (vector)
   "Return the first element of VECTOR."
@@ -116,7 +125,7 @@
 
 (defun spotify-device-list ()
   "Retrieve a formatted device list after searching Spotify for STR."
-  (let ((dev (make-req devices)))
+  (let ((dev (make-req spotify-devices-url)))
     (mapcar 'format-spotify-device (cdar dev))))
 
 (defun ivy-spotify-track-search ()
@@ -166,7 +175,7 @@
                    (string= action "previous"))
                   "POST"
                   "PUT")))
-  (make-req (format "https://api.spotify.com/v1/me/player/%s" action) method nil cl-header)))
+  (make-req (format "https://api.spotify.com/v1/me/player/%s" action) method nil spotify-cl-header)))
 
 (defun spotify-play ()
   "Play the currently active player."
@@ -194,4 +203,4 @@
   (player-action "shuffle?state=false"))
 
 (provide 'spotify.el)
-;;; spotify.el ends here
+;;; ivy-spotify.el ends here
